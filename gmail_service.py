@@ -48,6 +48,40 @@ def get_client_config(
     return json.loads(credentials_path.read_text(encoding="utf-8"))
 
 
+def get_client_config_type(client_config: dict[str, Any]) -> str:
+    if "installed" in client_config:
+        return "installed"
+    if "web" in client_config:
+        return "web"
+    return "unknown"
+
+
+def inspect_local_oauth_setup() -> tuple[bool, str]:
+    credentials_path = get_credentials_path()
+    if not credentials_path.exists():
+        return (
+            False,
+            f"Missing `{credentials_path}`. Create a Google OAuth client of type "
+            "`Desktop app`, download the JSON file, and save it with that name.",
+        )
+
+    try:
+        client_config = get_client_config()
+    except Exception as exc:
+        return False, f"Could not read `{credentials_path}`: {exc}"
+
+    config_type = get_client_config_type(client_config)
+    if config_type != "installed":
+        return (
+            False,
+            "Your `credentials.json` is not a Desktop app OAuth client. "
+            "For `localhost`, use a Google OAuth client of type `Desktop app`. "
+            "Use a `Web application` client only for the hosted Streamlit Cloud app.",
+        )
+
+    return True, f"Found a valid Desktop app OAuth client at `{credentials_path}`."
+
+
 def load_saved_credentials() -> Credentials | None:
     token_path = get_token_path()
     if not token_path.exists():
@@ -68,7 +102,15 @@ def save_credentials(creds: Credentials) -> None:
 
 
 def authenticate_interactive() -> Credentials:
-    flow = InstalledAppFlow.from_client_config(get_client_config(), SCOPES)
+    client_config = get_client_config()
+    config_type = get_client_config_type(client_config)
+    if config_type != "installed":
+        raise ValueError(
+            "Local Gmail sign-in requires a Google OAuth client of type `Desktop app`. "
+            "Replace `credentials.json` with a Desktop app client file and try again."
+        )
+
+    flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
     creds = flow.run_local_server(port=0, open_browser=True)
     save_credentials(creds)
     return creds
