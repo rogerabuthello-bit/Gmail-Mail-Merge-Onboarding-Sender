@@ -16,7 +16,6 @@ from gmail_service import (
     get_gmail_service,
     get_gmail_signature,
     get_profile,
-    inspect_local_oauth_setup,
     load_saved_credentials,
     send_email,
 )
@@ -276,6 +275,7 @@ st.caption("Safely send personalized HTML emails through the Gmail API.")
 with st.container(border=True):
     st.subheader("Step 1: Connect Gmail")
     credentials_path = Path.cwd() / "credentials.json"
+    local_oauth_ready = False
     if is_cloud_oauth_configured():
         st.write(
             "This app is configured for hosted Google OAuth. Use the button below to sign in, "
@@ -286,7 +286,17 @@ with st.container(border=True):
             "Place your Google OAuth desktop client file at "
             f"`{credentials_path}` before connecting."
         )
-        local_oauth_ready, local_oauth_message = inspect_local_oauth_setup()
+        local_oauth_ready = credentials_path.exists()
+        if local_oauth_ready:
+            local_oauth_message = (
+                f"Found `{credentials_path}`. If local Gmail sign-in fails, make sure it is a "
+                "`Desktop app` OAuth client from Google Cloud."
+            )
+        else:
+            local_oauth_message = (
+                f"Missing `{credentials_path}`. Create a Google OAuth client of type "
+                "`Desktop app`, download the JSON file, and save it with that name."
+            )
         if local_oauth_ready:
             st.success(local_oauth_message)
         else:
